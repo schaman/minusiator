@@ -1,0 +1,138 @@
+body {
+  padding: 50px;
+}
+
+a {
+  color: #00B7FF;
+}
+
+span.word {
+  cursor: pointer;
+  padding: 6px 0;
+  margin: -3px 0;
+}
+
+span.word.active {
+  font-weight: bold;
+}
+
+span.word:hover {
+  text-decoration: underline;
+}
+
+.word.minus {
+  text-decoration: line-through;
+}
+
+.word.plus {
+  color: #090;
+}
+
+.word.minus {
+  color: #900;
+}
+
+.phrase.disabled .word.plus, .wordlistitem.disabled .word.plus {
+  color: #9CC99C;
+}
+
+.phrase.disabled .word.minus, .wordlistitem.disabled .word.minus {
+  color: #C99C9C;
+}
+
+.phrase.disabled, .wordlistitem.disabled {
+  color: #c0c0c0;
+}
+
+/* scrolling columns */
+html {
+  height: 100%;
+  max-height: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: #fff;
+  /* hide overflow:hidden from IE5/Mac */
+  /* \*/
+  overflow: hidden;
+  /* */
+}
+body {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+#head {
+  position: absolute;
+  margin: 0;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: 100px;
+  background: url(fish.jpg) rgb(233, 238, 242);
+  background-repeat: no-repeat;
+  font-size: 4em;
+  z-index: 5;
+  color: #fff;
+}
+#foot {
+  position: absolute;
+  margin: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: 50px;
+  background: rgb(233, 238, 242);
+  font-size: 0.8em;
+  z-index: 5;
+  text-align: right;
+  color: rgb(157, 78, 84);
+}
+
+#left1, #left2, #left3, #left4, #left5 {
+  position: absolute;
+  left: 0;
+  top: 0px; /*top: 100px;*/
+  bottom: 0px; /*bottom: 50px;*/
+  width: 25%;
+  font-size: 1em;
+  z-index: 4;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  padding: 10px;
+}
+
+#left1, #left4, #left5 {
+  width: 15%;
+}
+#left2, #left3 {
+  width: 27.5%;
+}
+
+* html #left1, * html #left2, * html #left3, * html #left4, * html #left5 {
+  height: 100%;
+  top: 0;
+  bottom: 0;
+  border-top: 100px solid #fff;
+  border-bottom: 50px solid #fff;
+}
+#left1 { left:   0; /*background: rgb(237, 228, 214);*/ }
+#left2 { left: 15%; /*background: rgb(243, 217, 188);*/ }
+#left3 { left: 42.5%; /*background: rgb(223, 191, 196);*/ }
+#left4 { left: 70%; /*background: rgb(229, 218, 212);*/ }
+#left5 { left: 85%; /*background: rgb(229, 218, 212);*/ }
+
+.inner {
+  display: block;
+  padding: 0 10px 10px 10px;
+}
+.bold {
+  font-size: 1.5em;
+  font-weight: bold;
+}
