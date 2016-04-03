@@ -19,7 +19,7 @@ function textToPalabras(text) {
 }
 
 //var folder = './public/data/test/';
-var folder = './public/data/prednaznachenie/sense-2/';
+var folder = './public/data/prednaznachenie/sense/';
 
 router.get('/', function(req, res) {
   // загружаем фразы
