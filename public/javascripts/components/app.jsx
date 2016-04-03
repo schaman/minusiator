@@ -1,6 +1,7 @@
 var React = require("react"),
     $ = require("jquery"),
     Master = require("./master"),
+    MasterWord = require("./masterWord"),
     WordList = require("./wordList"),
     EventEmitterMixin = require('react-event-emitter-mixin'),
     data = require('./data');
@@ -10,15 +11,17 @@ var App = React.createClass({
 
   getInitialState() {
     return {
-      words: [],             // все слова отсортированные по весу
-      stemCounts: {},        // все стемы с весами
-      phrases: [],           // все фразы
-      activeWord: {},        // выбранное слово
-      activeWordPhrases: [], // фразы которые содержат выбранное слово
-      minusWords: [],        // минус-слова
-      plusWords: [],         // слова, которые мы игнорируем при расчёте веса фразы
-      enabledPhrases: [],    // фразы которые не содержат минус-слов
-      disabledPhrases: []    // фразы которые содержат минус-слова
+      words: [],                 // все слова отсортированные по весу
+      stemCounts: {},            // все стемы с весами
+      enabledStemCounts: [],     // частота в неотминусованных фразах
+      phrases: [],               // все фразы
+      activeWord: {},            // выбранное слово
+      activeWordPhrases: [],     // фразы которые содержат выбранное слово
+      activeWordEnabledCount: 0, // частота выбранного слова в неотминусованных фразах
+      minusWords: [],            // минус-слова
+      plusWords: [],             // слова, которые мы игнорируем при расчёте веса фразы
+      enabledPhrases: [],        // фразы которые не содержат минус-слов
+      disabledPhrases: []        // фразы которые содержат минус-слова
     };
   },
 
@@ -28,24 +31,63 @@ var App = React.createClass({
       document.addEventListener('keydown', this.handleKeydown, false);    
   },
 
+  // следующее по популярности в неотминусованных фразах
   nextWord(goForward) {
-    var current = -1;
-    var next = 0;
+    var current = this.state.activeWordEnabledCount;
 
-    if (this.state.activeWord && this.state.activeWord.stem) {
-      // узнать позицию текущего слова
-      current = data.indexOfStemInPalabras(this.state.activeWord.stem, this.state.words)
-    }
+    // если стоим на отминусованном слове, выбираем следующее в общем списке
+    if (current == 0) {
+      var next = 0;
 
-    if (goForward) {
-      next = current + 1;
+      if (this.state.activeWord && this.state.activeWord.stem) {
+        // узнать позицию текущего слова в общем списке
+        current = data.indexOfStemInPalabras(this.state.activeWord.stem, this.state.words)
+      }
+
+      if (goForward) {
+        next = current + 1;
+      } else {
+        next = current - 1;
+      }
+
+      // проверить границы списка, и выбрать нужное слово
+      if (next >= 0 && next <= this.state.words.length - 1) {
+        this.handleWordClick(this.state.words[next]);
+      }
     } else {
-      next = current - 1;
-    }
+      // делаем строку, которую удобно сравнивать
+      function pad(number, word) {
+        var p = "000000000";
+        var n = 1000000000 - number;
+        return (p+n).slice(-p.length) + word;
+      }
 
-    // проверить границы списка, и выбрать нужное слово
-    if (next >= 0 && next <= this.state.words.length - 1) {
-      this.handleWordClick(this.state.words[next]);
+      // находим следующее по популярности в неотминусованных
+      var currentWord = this.state.activeWord;
+      current = pad(current, currentWord.stem);
+
+      var stemCounts = this.state.enabledStemCounts;
+      var lastWeight = '';
+      if (goForward) lastWeight = 'Z'; // Z больше любой цифры
+      var candidate = '';
+      for (var stem in stemCounts) {
+        var w = pad(stemCounts[stem], stem);
+        if (goForward) { // максимальный вес меньше текущего
+          if (w > current && w < lastWeight) {
+            lastWeight = w;
+            candidate = stem;
+          }
+        } else { // минимальный вес больше текущего
+          if (w < current && (w > lastWeight || !lastWeight)) {
+            lastWeight = w;
+            candidate = stem;
+          }
+        }
+      }
+
+      if (candidate !== '') {
+        this.handleWordClick({word: data.stemWords[candidate], stem: candidate});
+      }
     }
   },
 
@@ -53,11 +95,11 @@ var App = React.createClass({
     var keyCode = e.keyCode;
     if (keyCode == 13) {
     } else if (keyCode == 87 || keyCode == 38) { // w or up
-      this.handlePlusClick();
-      this.nextWord(true);
+      if (this.handlePlusClick())
+        this.nextWord(true);
     } else if (keyCode == 83 || keyCode == 40) { // s or down
-      this.handleMinusClick();
-      this.nextWord(true);
+      if (this.handleMinusClick())
+        this.nextWord(true);
     } else if (keyCode == 65 || keyCode == 37) { // a or left
       this.nextWord(false);
     } else if (keyCode == 68 || keyCode == 39) { // d or right
@@ -139,12 +181,20 @@ var App = React.createClass({
     };
 
     // Отсортировать слова по весу
-    var sortedWords = [];
+    var sortedStems = [];
     for (var stem in stemCounts)
-      sortedWords.push([stem, stemCounts[stem]])
-    sortedWords.sort(function(a, b) {return b[1] - a[1]})
+      sortedStems.push([stem, stemCounts[stem]])
 
-    var words = sortedWords.map(function(sw){
+    sortedStems.sort(function(a, b) {
+      if (b[1] == a[1]) {
+        if(a[0] < b[0]) return -1;
+        if(a[0] > b[0]) return 1;
+        return 0;
+      }
+      return b[1] - a[1]
+    })
+
+    var words = sortedStems.map(function(sw){
       return {word: data.stemWords[sw[0]], stem: sw[0]};
     })
 
@@ -156,11 +206,12 @@ var App = React.createClass({
 
   updateMe(newState) {
     var state = {
-      words:      this.state.words,
-      stemCounts: this.state.stemCounts,
-      phrases:    this.state.phrases,
-      plusWords:  this.state.plusWords,
-      minusWords: this.state.minusWords
+      words:             this.state.words,
+      stemCounts:        this.state.stemCounts,
+      phrases:           this.state.phrases,
+      plusWords:         this.state.plusWords,
+      minusWords:        this.state.minusWords,
+      enabledStemCounts: this.state.enabledStemCounts
     }
 
     for (var attrname in newState) {
@@ -172,6 +223,10 @@ var App = React.createClass({
       var res = this.splitPhrases(state.phrases, state.minusWords);
       state.enabledPhrases = res.enabledPhrases;
       state.disabledPhrases = res.disabledPhrases;
+
+      res = this.getSortedWords(res.enabledPhrases);
+      state.words = res.words;
+      state.enabledStemCounts = res.stemCounts;
     }
 
     // Отсортировать фразы по весу самого тяжёлого из входящих в них слов
@@ -212,52 +267,83 @@ var App = React.createClass({
 
     this.setState({
       activeWord: word,
-      activeWordPhrases: activeWordPhrases
+      activeWordPhrases: activeWordPhrases,
+      activeWordEnabledCount: this.state.enabledStemCounts[word.stem]
     });
   },
 
   handleMinusClick() {
     var minusWords = this.state.minusWords;
+    var plusWords = this.state.plusWords;
     var word = this.state.activeWord;
 
     if (!word) {
-      return;
+      return false;
     }
 
     var i = minusWords.indexOf(word);
 
     if (i >= 0) {
-      minusWords.splice(i);
+      minusWords.splice(i, 1);
+      this.updateMe({ minusWords: minusWords });
+      return false;
     } else {
-      minusWords.push(word);
+      var k = plusWords.indexOf(word);
+      if (k >= 0) {
+        plusWords.splice(k, 1); // удаляем из плюсов если занесли в минусы
+        minusWords.push(word);
+        this.updateMe({ minusWords: minusWords, plusWords: plusWords });
+      } else {
+        minusWords.push(word);
+        this.updateMe({ minusWords: minusWords });
+      }
+      return true;
     }
-
-    this.updateMe({
-      minusWords: minusWords
-    });
   },
 
+  // true = добавлено, false = удалено или не найдено
   handlePlusClick() {
     var plusWords = this.state.plusWords;
+    var minusWords = this.state.minusWords;
     var word = this.state.activeWord;
 
     if (!word) {
-      return;
+      return false;
     }
 
     var i = plusWords.indexOf(word);
 
     if (i >= 0) {
-      plusWords.splice(i);
+      plusWords.splice(i, 1);
+      this.updateMe({ plusWords: plusWords });
+      return false;
     } else {
-      plusWords.push(word);
+      var k = minusWords.indexOf(word);
+      if (k >= 0) {
+        minusWords.splice(k, 1); // удаляем из минусов если занесли в плюсы
+        plusWords.push(word);
+        this.updateMe({ plusWords: plusWords, minusWords: minusWords });
+      } else {
+        plusWords.push(word);
+        this.updateMe({ plusWords: plusWords });
+      }
+      return true;
     }
-
-    this.updateMe({
-      plusWords: plusWords
-    });
   },
   render() {
+    if (this.state.activeWord.stem) {
+      var minus = data.stemInPalabras(this.state.activeWord.stem, this.state.minusWords);
+      var plus = data.stemInPalabras(this.state.activeWord.stem, this.state.plusWords);
+      var activeWord = 
+        (<MasterWord
+          active={true}
+          minus={minus}
+          plus={plus}
+          palabra={this.state.activeWord} />)
+    } else {
+      var activeWord = (<span/>);
+    }
+
     return (
       <div className="cols">
         <div id="left1">
@@ -285,7 +371,7 @@ var App = React.createClass({
               plus
             </button>
             &nbsp;
-            {this.state.activeWord.word}
+            {activeWord}
             &nbsp;
             <button className="btn btn-default" onClick={this.handleMinusClick}>
               minus
