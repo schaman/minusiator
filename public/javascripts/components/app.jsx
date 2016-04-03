@@ -11,7 +11,7 @@ var App = React.createClass({
   getInitialState() {
     return {
       words: [],             // все слова отсортированные по весу
-      stemCounts: {},        // все слова с весами
+      stemCounts: {},        // все стемы с весами
       phrases: [],           // все фразы
       activeWord: {},        // выбранное слово
       activeWordPhrases: [], // фразы которые содержат выбранное слово
@@ -54,12 +54,14 @@ var App = React.createClass({
     if (keyCode == 13) {
     } else if (keyCode == 87 || keyCode == 38) { // w or up
       this.handlePlusClick();
+      this.nextWord(true);
     } else if (keyCode == 83 || keyCode == 40) { // s or down
       this.handleMinusClick();
+      this.nextWord(true);
     } else if (keyCode == 65 || keyCode == 37) { // a or left
-      this.nextWord(false)
+      this.nextWord(false);
     } else if (keyCode == 68 || keyCode == 39) { // d or right
-      this.nextWord(true)
+      this.nextWord(true);
     } else if (keyCode == 88) {
     }
   },
@@ -79,10 +81,10 @@ var App = React.createClass({
       enabledPhrases.push(phrase);
     })
 
-    this.setState({
+    return {
       enabledPhrases: enabledPhrases,
       disabledPhrases: disabledPhrases,
-    });
+    };
   },
 
   sortPhrases(state) {
@@ -103,7 +105,7 @@ var App = React.createClass({
         }
 
         if (!data.stemInPalabras(stem, state.plusWords)) {
-          var w = state.stemCounts[stem].cnt;
+          var w = state.stemCounts[stem];
           if (weight < w) {
             weight = w;
           }
@@ -123,11 +125,40 @@ var App = React.createClass({
     return phrases;
   },
 
+  getSortedWords(phrases) {
+    // Для каждого слова найти его вес — в какое количество фраз оно входит
+    // узнаём частотность каждого стема и каждой словоформы
+    var stemCounts = {}; // "хо": 5
+
+    for (var i = 0; i < phrases.length; i++) {
+      for (var k = 0; k < phrases[i].length; k++) {
+        var word = phrases[i][k].word;
+        var stem = phrases[i][k].stem;
+        stemCounts[stem] = (stemCounts[stem] || 0) + 1;
+      };
+    };
+
+    // Отсортировать слова по весу
+    var sortedWords = [];
+    for (var stem in stemCounts)
+      sortedWords.push([stem, stemCounts[stem]])
+    sortedWords.sort(function(a, b) {return b[1] - a[1]})
+
+    var words = sortedWords.map(function(sw){
+      return {word: data.stemWords[sw[0]], stem: sw[0]};
+    })
+
+    return {
+      words: words,
+      stemCounts: stemCounts
+    };
+  },
+
   updateMe(newState) {
     var state = {
-      phrases:    this.state.phrases,
       words:      this.state.words,
       stemCounts: this.state.stemCounts,
+      phrases:    this.state.phrases,
       plusWords:  this.state.plusWords,
       minusWords: this.state.minusWords
     }
@@ -138,7 +169,9 @@ var App = React.createClass({
 
     if (('phrases' in newState) || ('minusWords' in newState)) {
       // делим фразы на активные и неактивные по минус-словам
-      this.splitPhrases(state.phrases, state.minusWords);
+      var res = this.splitPhrases(state.phrases, state.minusWords);
+      state.enabledPhrases = res.enabledPhrases;
+      state.disabledPhrases = res.disabledPhrases;
     }
 
     // Отсортировать фразы по весу самого тяжёлого из входящих в них слов
@@ -154,57 +187,13 @@ var App = React.createClass({
       var plusWords = response.plus;
       var phrases = response.phrases;
 
-      // Составить список входящих туда слов
-      // Для каждого слова найти его вес — в какое количество фраз оно входит
-
-      // узнаём частотность каждого стема и каждой словоформы
-
-      var stemCounts = {}; // "хо": {cnt: 5, word: "хочу", words: {"хочу": 3, "хотел": 2}} 
-
-      for (var i = 0; i < phrases.length; i++) {
-        for (var k = 0; k < phrases[i].length; k++) {
-          var word = phrases[i][k].word;
-          var stem = phrases[i][k].stem;
-          
-          if (!(stem in stemCounts)) {
-            stemCounts[stem] = {cnt: 0, words: {}};
-          }
-          
-          stemCounts[stem].cnt++;
-          stemCounts[stem].words[word] = (stemCounts[stem].words[word] || 0) + 1;
-        };
-      };
-
-      // выбираем самую популярную словоформу каждого стема
-      for (stem in stemCounts) {
-        var maxPopularity = 0;
-        var popularWordForm = '';
-
-        for (word in stemCounts[stem].words) {
-          if (stemCounts[stem].words[word] > maxPopularity) {
-            popularWordForm = word;
-            maxPopularity = stemCounts[stem].words[word];
-          }
-        }
-
-        stemCounts[stem].word = popularWordForm;
-      }
-
-      // Отсортировать слова по весу
-
-      var sortedWords = [];
-      for (var stem in stemCounts)
-        sortedWords.push([stem, stemCounts[stem]])
-      sortedWords.sort(function(a, b) {return b[1].cnt - a[1].cnt})
-
-      var words = sortedWords.map(function(sw){
-        return {word: sw[1].word, stem: sw[0]};
-      })
+      data.loadDictionary(phrases);
+      var res = this.getSortedWords(phrases);
 
       this.updateMe({
+        words:      res.words,
+        stemCounts: res.stemCounts,
         phrases:    phrases,
-        words:      words,
-        stemCounts: stemCounts,
         plusWords:  plusWords,
         minusWords: minusWords
       });
