@@ -24,6 +24,44 @@ var App = React.createClass({
 
   componentWillMount() {
     this.eventEmitter('on', 'wordClick', this.handleWordClick);
+    if (typeof document !== 'undefined')
+      document.addEventListener('keydown', this.handleKeydown, false);    
+  },
+
+  nextWord(goForward) {
+    var current = -1;
+    var next = 0;
+
+    if (this.state.activeWord && this.state.activeWord.stem) {
+      // узнать позицию текущего слова
+      current = data.indexOfStemInPalabras(this.state.activeWord.stem, this.state.words)
+    }
+
+    if (goForward) {
+      next = current + 1;
+    } else {
+      next = current - 1;
+    }
+
+    // проверить границы списка, и выбрать нужное слово
+    if (next >= 0 && next <= this.state.words.length - 1) {
+      this.handleWordClick(this.state.words[next]);
+    }
+  },
+
+  handleKeydown(e) {
+    var keyCode = e.keyCode;
+    if (keyCode == 13) {
+    } else if (keyCode == 87 || keyCode == 38) { // w or up
+      this.handlePlusClick();
+    } else if (keyCode == 83 || keyCode == 40) { // s or down
+      this.handleMinusClick();
+    } else if (keyCode == 65 || keyCode == 37) { // a or left
+      this.nextWord(false)
+    } else if (keyCode == 68 || keyCode == 39) { // d or right
+      this.nextWord(true)
+    } else if (keyCode == 88) {
+    }
   },
 
   splitPhrases(phrases, minusWords) {
@@ -175,6 +213,7 @@ var App = React.createClass({
 
   componentWillUnmount() {
     this.serverRequest.abort();
+    document.removeEventListener('keydown', this.handleKeydown, false);
   },
 
   handleWordClick(word) {

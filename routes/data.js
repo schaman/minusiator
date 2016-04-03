@@ -19,13 +19,25 @@ function textToPalabras(text) {
 }
 
 //var folder = './public/data/test/';
-var folder = './public/data/prednaznachenie/sense/';
+var folder = './data/';
+
+function load(filename) {
+  var path = folder + filename;
+
+  console.log(path);
+
+  try {
+    return fs.readFileSync(path, 'utf8');
+  } catch (e) {
+    return '';
+  }
+}
 
 router.get('/', function(req, res) {
   // загружаем фразы
-  var phrases = fs.readFileSync(folder + 'phrases.txt', 'utf8');
-  var plus = fs.readFileSync(folder + 'plus.txt', 'utf8');
-  var minus = fs.readFileSync(folder + 'minus.txt', 'utf8');
+  var phrases = load('phrases.txt');
+  var plus = load('plus.txt');
+  var minus = load('minus.txt');
 
   phrases = phrases.split(/\n/).map(function(phrase){
     return wordArrayToPalabras(phrase.split(/\s/));
